@@ -26,20 +26,22 @@ public class FTP_Server extends JFrame implements ActionListener {
 	private static final long serialVersionUID = 1L;
 	private Socket socket;
 	private ServerSocket ss;
+	private boolean clientHasDisconnected = false;
 	private File folderDestination = new File("/Users/Seph/Documents/COP2805/Assignments/NetworkingApp/"); // ****CHANGE TO C:\Temp BEFORE SHIP
 	private JTextArea display; // Hold activity and event messgaes
 	private JPanel buttonPanel; // Hold actionable buttons
 	private JButton btnDestination = new JButton("Destination");
 	private JButton btnHelp = new JButton("Help");
 	private JButton btnExit = new JButton("Exit");
-	
+
 	int fileLength;
+	int connectionResult;
 	String fileName;
 	InputStream isServer;
 	InputStreamReader ipStreamReader;
 	BufferedReader serverInput;  //used for character based input
 	PrintWriter writer;
-	
+
 	public FTP_Server(){
 		//********** INITIALIZE GUI **********
 		super("FTP Server");
@@ -61,13 +63,13 @@ public class FTP_Server extends JFrame implements ActionListener {
 		btnHelp.addActionListener(this);
 		btnExit.addActionListener(this);
 		// Set window as visible
-		setVisible(true); 
+		setVisible(true);
 	}
 
 	@Override
 	public void actionPerformed(ActionEvent e) {
 		Object source = e.getSource();
-		
+
 		if(source == btnDestination){
 			JFileChooser fc = new JFileChooser(); // Init file chooser for btnDestination
 			fc.setCurrentDirectory(folderDestination);
@@ -90,7 +92,10 @@ public class FTP_Server extends JFrame implements ActionListener {
 			JOptionPane.showConfirmDialog(this, msg, "Help", JOptionPane.DEFAULT_OPTION, JOptionPane.INFORMATION_MESSAGE);
 		}
 		else if (source == btnExit){
-			
+			if (clientHasDisconnected == true)
+				System.exit(0);
+			else
+				display.append("Client must disconnect before exiting\n");
 		}
 	}
 
@@ -103,7 +108,7 @@ public class FTP_Server extends JFrame implements ActionListener {
 				ss = new ServerSocket(21); // Set server to use port 21
 				socket = ss.accept(); // Blocks until connected to client
 				display.append("Connected to client: " + socket.getRemoteSocketAddress() + "\n");
-				
+
 				// Create input stream connected to socket
 				isServer = socket.getInputStream();
 				ipStreamReader = new InputStreamReader(isServer);
@@ -111,22 +116,21 @@ public class FTP_Server extends JFrame implements ActionListener {
 				while (true){
 					fileName = serverInput.readLine(); // Get name of file
 					fileLength = Integer.parseInt(serverInput.readLine()); // Get size of file
-		
+
 					// Create BufferedWriter with file path
 					writer = new PrintWriter(new OutputStreamWriter(
 				              new FileOutputStream(folderDestination + File.separator + fileName), "utf-8"));
-				
-				
+
 					try{
 						String line;
 						while(true){ // Loop until break
 							line = serverInput.readLine(); // Read line from socket via serverInput
 							writer.println(line); // Write line to file
-							writer.flush();	
+							writer.flush();
 							fileLength -= (line.length() + 1); // Subtract lenght of line from fileLength
 							if(fileLength <= 0){break;} // Break when entire file has been read and written
 						}
-						
+
 					} catch (NumberFormatException e){
 						//ignore
 					} catch (Exception e){ // Catch all
@@ -136,7 +140,7 @@ public class FTP_Server extends JFrame implements ActionListener {
 						writer.close();
 					}//end try
 				}//end while
-				
+
 			} catch (IOException e) {
 			e.printStackTrace();
 			} catch (NumberFormatException e){
@@ -149,10 +153,11 @@ public class FTP_Server extends JFrame implements ActionListener {
 					e.printStackTrace();
 				}
 				display.append("Client disconnected\n");
+				clientHasDisconnected = true;
 			}
 		}
 	}
-	
+
 	public static void main(String[] args){
 		FTP_Server serverApp = new FTP_Server(); //Initailize FTP_Server object
 		serverApp.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE); //Close when user closes window
